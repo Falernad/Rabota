@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>🍔 BURGER KING · Собери Воппер</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #1a0e0a; 
+            font-family: 'Arial Black', 'Impact', sans-serif; 
+        }
+        canvas { 
+            display: block; 
+            cursor: none; 
+        }
+        #ui {
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white;
+            pointer-events: none; 
+            text-shadow: 3px 3px 0 #b32e1a;
+            z-index: 10;
+        }
+        #bk-logo {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            font-size: 42px;
+            font-weight: 900;
+            color: #ffc72c;
+            text-shadow: 4px 4px 0 #d42e1a, 0 0 20px #ff9f00;
+            letter-spacing: 2px;
+            transform: skew(-5deg);
+            background: rgba(0,0,0,0.3);
+            padding: 5px 20px;
+            border-radius: 50px;
+            backdrop-filter: blur(4px);
+            border: 2px solid #ffc72c;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #bk-logo span {
+            font-size: 32px;
+            margin-right: 10px;
+        }
+        #lives-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 36px;
+            color: #ff5e3a;
+            text-shadow: 2px 2px 0 #b32e1a;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #progress {
+            position: absolute;
+            bottom: 40px;
+            left: 20px;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.6);
+            padding: 12px 24px;
+            border-radius: 40px;
+            pointer-events: none;
+            z-index: 10;
+            border: 2px solid #ffc72c;
+            text-shadow: 1px 1px 0 #000;
+        }
+        #restart-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffc72c;
+            color: #8b0000;
+            border: none;
+            border-radius: 60px;
+            padding: 12px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 8px 0 #b36b00, 0 10px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            transition: 0.05s linear;
+            border-bottom: 4px solid #b36b00;
+            display: none;
+            z-index: 30;
+        }
+        #restart-btn:active {
+            transform: translateX(-50%) translateY(4px);
+            box-shadow: 0 4px 0 #b36b00, 0 8px 15px rgba(0,0,0,0.3);
+        }
+        #restart-btn.show {
+            display: block;
+        }
+        .message {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 60px;
+            color: #ffc72c;
+            text-shadow: 5px 5px 0 #d42e1a;
+            pointer-events: none;
+            z-index: 20;
+            display: none;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div style="font-size: 18px; letter-spacing: 2px; color: #ffc72c;">🍔 БУРГЕРОВ</div>
+        <div id="burgerCountDisplay" style="font-size: 80px; color: #ff5e3a; line-height: 1;">0</div>
+    </div>
+    <div id="bk-logo">
+        <span>👑</span> BURGER KING
+    </div>
+    <div id="lives-container">
+        <span id="livesDisplay">❤️ ❤️ ❤️</span>
+    </div>
+    <div id="progress">
+        <span id="progressText">Лови котлету 🥩</span>
+    </div>
+    <div id="message" class="message">БУРГЕР СОБРАН!</div>
+    <button id="restart-btn">🍔 ИГРАТЬ СНОВА</button>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    (function(){
+        "use strict";
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const burgerCountDisplay = document.getElementById('burgerCountDisplay');
+        const livesDisplay = document.getElementById('livesDisplay');
+        const progressText = document.getElementById('progressText');
+        const messageDiv = document.getElementById('message');
+        const restartBtn = document.getElementById('restart-btn');
+
+        CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            this.moveTo(x + r, y);
+            this.lineTo(x + w - r, y);
+            this.quadraticCurveTo(x + w, y, x + w, y + r);
+            this.lineTo(x + w, y + h - r);
+            this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            this.lineTo(x + r, y + h);
+            this.quadraticCurveTo(x, y + h, x, y + h - r);
+            this.lineTo(x, y + r);
+            this.quadraticCurveTo(x, y, x + r, y);
+            return this;
+        };
+
+        canvas.width = wind        
+        const RECIPE = ['meat', 'cheese', 'salad', 'tomato', 'top-bun'];
+        const RECIPE_NAMES = {
+            'meat': 'котлету 🥩',
+            'cheese': 'сыр 🧀',
+            'salad': 'салат 🥬',
+            'tomato': 'помидор 🍅',
+            'top-bun': 'верхнюю булку 🍔'
+        };
+        
+        const COLORS = {
+            bun: ['#f5a623', '#d38a1c'],
+            meat: ['#8b4513', '#5c2e0c'],
+            cheese: ['#ffc72c', '#e6a800'],
+            salad: ['#7cc46c', '#4e9e3a'],
+            tomato: ['#e31837', '#b01020'],
+            'top-bun': ['#f5a623', '#d38a1c']
+        };
+
+        let burgersCompleted = 0;
+        let lives = 3;
+        let gameOver = false;
+        let items = [];
+        let mouseX = canvas.width / 2;
+        let currentStep = 0;
+        
+        const player = {
+            x: canvas.width / 2 - 70,
+            y: canvas.height - 120,
+            w: 140,
+            h: 40,
+            stack: [],
+            tilt: 0,
+            squash: 1
+        };
+
+        // Генерация фиксированных позиций кунжута
+        function generateSesamePositions(radius, count = 18) {
+            const positions = [];
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI;
+                const r = Math.random() * (radius - 6);
+                const x = Math.cos(angle) * r;
+                const y = -Math.sin(angle) * r;
+                positions.push({ x, y });
+            }
+            return positions;
+        }
+
+        class Ingredient {
+            constructor(type) {
+                this.type = type;
+                this.w = (type === 'top-bun') ? 140 : 110;
+                this.h = (type === 'top-bun') ? 45 : 22;
+                this.x = Math.random() * (canvas.width - this.w);
+                this.y = -100;
+                this.speed = 4.5 + Math.random() * 2;
+                this.color = COLORS[type];
+                this.rot = (Math.random() - 0.5) * 0.2;
+                
+                if (type === 'top-bun') {
+                    this.sesame = generateSesamePositions(this.w/2, 18);
+                } else {
+                    this.sesame = null;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.w/2, this.y + this.h/2);
+                ctx.rotate(this.rot);
+                
+                let grd = ctx.createLinearGradient(-this.w/2, 0, this.w/2, 0);
+                grd.addColorStop(0, this.color[0]);
+                grd.addColorStop(1, this.color[1]);
+                
+                ctx.fillStyle = grd;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00000080';
+                
+                if (this.type === 'top-bun') {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.w/2, 0, Math.PI, true);
+                    ctx.fill();
+                    
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = '#fdf5e6';
+                    for (let s of this.sesame) {
+                        ctx.beginPath();
+                        ctx.arc(s.x, s.y, 3, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                } else {
+                    ctx.beginPath();
+                    ctx.roundRect(-this.w/2, -this.h/2, this.w, this.h, 8);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        function updateLivesDisplay() {
+            let hearts = '';
+            for (let i=0; i<3; i++) {
+                hearts += (i < lives) ? '❤️ ' : '🖤 ';
+            }
+            livesDisplay.textContent = hearts;
+        }
+
+        function updateProgressDisplay() {
+            if (gameOver) return;
+            if (currentStep < RECIPE.length) {
+                progressText.textContent = `Лови ${RECIPE_NAMES[RECIPE[currentStep]]}`;
+            } else {
+                progressText.textContent = 'Бургер готов!';
+            }
+        }
+
+        function completeBurger() {
+            burgersCompleted++;
+            burgerCountDisplay.textContent = burgersCompleted;
+            
+            // Восстанавливаем одну жизнь (но не больше 3)
+            lives = Math.min(3, lives + 1);
+            updateLivesDisplay();
+            
+            player.stack = [];
+            currentStep = 0;
+            
+            messageDiv.style.display = 'block';
+            setTimeout(() => messageDiv.style.display = 'none', 1200);
+            
+            updateProgressDisplay();
+        }
+
+        function loseLife() {
+            lives--;
+            updateLivesDisplay();
+            if (lives <= 0) {
+                gameOver = true;
+                showRestart();
+                progressText.textContent = 'Игра окончена';
+            }
+        }
+
+        function spawnItem() {
+            if (gameOver) return;
+            
+            const types = ['meat', 'cheese', 'salad', 'tomato', 'top-bun'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            items.push(new Ingredient(type));
+            
+            let delay = Math.max(400, 1000 - (burgersCompleted * 30));
+            setTimeout(spawnItem, delay);
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            let diff = mouseX - (player.x + player.w/2);
+            player.x += diff * 0.15;
+            player.tilt = diff * 0.001;
+            player.squash += (1 - player.squash) * 0.1;
+
+            // Точная высота стопки с учётом реальных высот слоёв
+            const stackHeight = player.stack.reduce((sum, layer) => sum + layer.h, 0);
+            const stackTopY = player.y - stackHeight;
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.y += item.speed;
+                
+                // Проверка столкновения: предмет должен пересекаться по вертикали с верхней границей стопки
+                const itemBottom = item.y + item.h;
+                const verticalOverlap = (itemBottom >= stackTopY && item.y <= stackTopY + 5); // допуск 5px
+                
+                if (verticalOverlap && 
+                    item.x < player.x + player.w && 
+                    item.x + item.w > player.x) {
+                    
+                    if (currentStep < RECIPE.length && item.type === RECIPE[currentStep]) {
+                        const capturedSesame = item.sesame;
+                        player.stack.push({c: item.color, h: item.h, type: item.type, sesame: capturedSesame});
+                        currentStep++;
+                        player.squash = 0.6;
+                        
+                        if (item.type === 'top-bun') {
+                            completeBurger();
+                        }
+                        
+                        updateProgressDisplay();
+                        items.splice(i, 1);
+                    } else {
+                        loseLife();
+                        items.splice(i, 1);
+                        if (gameOver) return;
+                    }
+                    continue;
+                }
+
+                if (item.y > canvas.height + 50) {
+                    items.splice(i, 1);
+                }
+            }
+        }
+
+        function showRestart() {
+            restartBtn.classList.add('show');
+        }
+
+        function restartGame() {
+            burgersCompleted = 0;
+            lives = 3;
+            gameOver = false;
+            items = [];
+            player.stack = [];
+            currentStep = 0;
+            player.x = canvas.width / 2 - 70;
+            player.tilt = 0;
+            player.squash = 1;
+            
+            burgerCountDisplay.textContent = '0';
+            updateLivesDisplay();
+            updateProgressDisplay();
+            
+            restartBtn.classList.remove('show');
+            messageDiv.style.display = 'none';
+            
+            spawnItem();
+        }
+
+        function draw() {
+            const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 100, canvas.width/2, canvas.height/2, canvas.width);
+            grad.addColorStop(0, '#2d1a0e');
+            grad.addColorStop(0.7, '#140a05');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#ffc72c20';
+            ctx.lineWidth = 1;
+            for (let i=0; i<canvas.width; i+= 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+
+            ctx.save();
+            ctx.translate(player.x + player.w/2, player.y + player.h);
+            ctx.rotate(player.tilt);
+            ctx.scale(2 - player.squash, player.squash);
+            ctx.translate(-(player.x + player.w/2), -(player.y + player.h));
+
+            let bunGrd = ctx.createLinearGradient(player.x, 0, player.x + player.w, 0);
+            bunGrd.addColorStop(0, COLORS.bun[0]);
+            bunGrd.addColorStop(1, COLORS.bun[1]);
+            ctx.fillStyle = bunGrd;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00000080';
+            ctx.beginPath();
+            ctx.roundRect(player.x, player.y, player.w, player.h, 15);
+            ctx.fill();
+
+            let currentStackY = player.y;
+            player.stack.forEach((layer, i) => {
+                currentStackY -= layer.h;
+                let lGrd = ctx.createLinearGradient(player.x, 0, player.x + player.w, 0);
+                lGrd.addColorStop(0, layer.c[0]);
+                lGrd.addColorStop(1, layer.c[1]);
+                ctx.fillStyle = lGrd;
+                ctx.beginPath();
+                if (layer.type === 'top-bun') {
+                    const centerX = player.x + player.w/2;
+                    const centerY = currentStackY + layer.h/2; // центр полукруга
+                    ctx.arc(centerX, centerY, player.w/2, 0, Math.PI, true);
+                    ctx.fill();
+                    
+                    if (layer.sesame) {
+                        ctx.shadowBlur = 0;
+                        ctx.fillStyle = '#fdf5e6';
+                        for (let s of layer.sesame) {
+                            ctx.beginPath();
+                            ctx.arc(centerX + s.x, centerY + s.y, 3, 0, Math.PI*2);
+                            ctx.fill();
+                        }
+                        ctx.shadowBlur = 20;
+                    }
+                } else {
+                    ctx.roundRect(player.x + 10, currentStackY, player.w - 20, layer.h, 10);
+                    ctx.fill();
+                }
+            });
+            ctx.restore();
+
+            items.forEach(item => item.draw());
+
+            if (gameOver) {
+                ctx.fillStyle = '#000000b0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 56px "Arial Black", Impact, sans-serif';
+                ctx.fillStyle = '#e31837';
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = '#000';
+                ctx.fillText('💥 БУРГЕР ИСПОРЧЕН 💥', canvas.width/2, canvas.height/2 - 40);
+                ctx.font = '32px Arial';
+                ctx.fillStyle = '#f5e6d3';
+                ctx.fillText(`Собрано бургеров: ${burgersCompleted}`, canvas.width/2, canvas.height/2 + 30);
+                ctx.shadowBlur = 0;
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        function frame() {
+            update();
+            draw();
+        }
+
+        window.addEventListener('mousemove', (e) => { 
+            mouseX = e.clientX; 
+        });
+        
+        restartBtn.addEventListener('click', () => {
+            restartGame();
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = Math.min(player.x, canvas.width - player.w);
+            player.y = canvas.height - 120;
+        });
+
+        updateLivesDisplay();
+        updateProgressDisplay();
+        spawnItem();
+        frame();
+    })();ow.innerWidth;
+        canvas.height = window.innerHeight;
+
+</script>
+</body>
+</html>
